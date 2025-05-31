@@ -1,0 +1,12 @@
+name: o-estudio-dev
+
+description: Setup of the local environment for backend development
+
+tasks:
+  setup:
+    description: Creates a virtual environment and installs dependencies
+    cmds:
+      - python -m venv venv
+      - . venv/bin/activate && pip install --upgrade pip
+      - . venv/bin/activate && pip install -r requirements.txt
+    silent: false
