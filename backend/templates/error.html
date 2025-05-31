@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <div class="error-container py-5">
+                <h1 class="display-1 text-danger fw-bold">{{ error_code }}</h1>
+                
+                <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" fill="currentColor" class="bi bi-music-note-beamed text-muted my-4" viewBox="0 0 16 16">
+                    <path d="M6 13c0 1.105-1.12 2-2.5 2S1 14.105 1 13c0-1.104 1.12-2 2.5-2s2.5.896 2.5 2zm9-2c0 1.105-1.12 2-2.5 2s-2.5-.895-2.5-2 1.12-2 2.5-2 2.5.895 2.5 2z"/>
+                    <path fill-rule="evenodd" d="M14 11V2h1v9h-1zM6 3v10H5V3h1z"/>
+                    <path d="M5 2.905a1 1 0 0 1 .9-.995l8-.8a1 1 0 0 1 1.1.995V3L5 4V2.905z"/>
+                </svg>
+                
+                <h2 class="mb-4">{{ error_message }}</h2>
+                
+                {% if error_code == 404 %}
+                <p class="lead mb-4">The page you're looking for doesn't exist or has been moved.</p>
+                {% elif error_code == 500 %}
+                <p class="lead mb-4">Something went wrong on our end. We're working to fix the issue.</p>
+                {% else %}
+                <p class="lead mb-4">An unexpected error has occurred. Please try again later.</p>
+                {% endif %}
+                
+                <div class="mt-5">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg me-2">
+                        <i class="fa fa-home"></i> Go Home
+                    </a>
+                    <button onclick="history.back()" class="btn btn-outline-light btn-lg">
+                        <i class="fa fa-arrow-left"></i> Go Back
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Suggestions -->
+            <div class="suggestions mt-5 text-start">
+                <h4>You might want to:</h4>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item bg-transparent">
+                        <i class="fa fa-search me-2"></i> 
+                        <a href="{{ url_for('concerts') }}" class="text-decoration-none">Search for concerts</a>
+                    </li>
+                    <li class="list-group-item bg-transparent">
+                        <i class="fa fa-user me-2"></i> 
+                        {% if current_user.is_authenticated %}
+                        <a href="{{ url_for('profile') }}" class="text-decoration-none">Check your profile</a>
+                        {% else %}
+                        <a href="{{ url_for('login') }}" class="text-decoration-none">Log in to your account</a>
+                        {% endif %}
+                    </li>
+                    <li class="list-group-item bg-transparent">
+                        <i class="fa fa-music me-2"></i> 
+                        <a href="{{ url_for('concerts', is_live=1) }}" class="text-decoration-none">Explore live concerts</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

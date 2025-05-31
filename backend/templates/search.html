@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="mb-0">Browse Concerts</h1>
+            <p class="text-muted">Discover live and recorded performances</p>
+        </div>
+    </div>
+
+    <!-- Search & Filter Form -->
+    <div class="card bg-dark mb-4">
+        <div class="card-body">
+            <form id="search-form" method="GET" action="{{ url_for('concerts') }}">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="query" class="form-label">Search</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fa fa-search"></i></span>
+                            {{ form.query(class="form-control", id="query", placeholder="Search by title or description...") }}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label for="genre" class="form-label">Genre</label>
+                        {{ form.genre(class="form-select", id="genre") }}
+                    </div>
+                    
+                    <div class="col-md-3 d-flex align-items-end">
+                        <div class="form-check mb-2 ms-3">
+                            {{ form.is_live(class="form-check-input", id="is_live") }}
+                            <label class="form-check-label" for="is_live">{{ form.is_live.label }}</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-end mt-3">
+                    <button type="reset" class="btn btn-outline-secondary me-2">Clear</button>
+                    {{ form.submit(class="btn btn-primary") }}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div class="row mb-3">
+        <div class="col">
+            <h3>
+                {% if request.args.get('query') %}
+                Search results for "{{ request.args.get('query') }}"
+                {% elif request.args.get('genre') %}
+                {{ request.args.get('genre')|capitalize }} concerts
+                {% elif request.args.get('is_live') %}
+                Live concerts
+                {% else %}
+                All concerts
+                {% endif %}
+            </h3>
+        </div>
+        <div class="col-auto">
+            <span class="text-muted">
+                {{ concerts.total }} result{{ 's' if concerts.total != 1 else '' }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Concert Grid -->
+    {% if concerts.items %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4 mb-4">
+        {% for concert in concerts.items %}
+        <div class="col">
+            <div class="card concert-card h-100">
+                <div class="concert-thumbnail">
+                    <img src="{{ concert.thumbnail_url }}" class="card-img-top" alt="{{ concert.title }}">
+                    {% if concert.is_live %}
+                        {% if concert.scheduled_for and concert.scheduled_for > now %}
+                        <span class="badge bg-primary live-badge">SCHEDULED</span>
+                        {% else %}
+                        <span class="badge bg-danger live-badge">LIVE</span>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ concert.title }}</h5>
+                    <p class="card-text">
+                        <small class="text-muted">
+                            <i class="fa fa-user"></i> 
+                            <a href="{{ url_for('user_profile', user_id=concert.artist.id) }}" class="text-decoration-none text-muted">
+                                {{ concert.artist.username }}
+                            </a>
+                            <span class="ms-2">
+                                <i class="fa fa-music"></i> {{ concert.genre }}
+                            </span>
+                        </small>
+                    </p>
+                    
+                    {% if concert.is_live and concert.scheduled_for %}
+                    <p class="card-text">
+                        <i class="fa fa-calendar"></i> 
+                        {{ concert.scheduled_for.strftime('%Y-%m-%d %H:%M') }}
+                    </p>
+                    {% endif %}
+                    
+                    <p class="card-text">{{ concert.description|truncate(100) }}</p>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('concert', concert_id=concert.id) }}" class="btn btn-secondary w-100">
+                        {% if concert.is_live %}
+                            {% if concert.scheduled_for and concert.scheduled_for > now %}
+                            <i class="fa fa-info-circle"></i> Details
+                            {% else %}
+                            <i class="fa fa-play-circle"></i> Watch Now
+                            {% endif %}
+                        {% else %}
+                        <i class="fa fa-play-circle"></i> Watch
+                        {% endif %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Pagination -->
+    {% if concerts.pages > 1 %}
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+            {% if concerts.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('concerts', page=concerts.prev_num, query=request.args.get('query'), genre=request.args.get('genre'), is_live=request.args.get('is_live')) }}">
+                    <i class="fa fa-chevron-left"></i> Previous
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link"><i class="fa fa-chevron-left"></i> Previous</span>
+            </li>
+            {% endif %}
+            
+            {% for page_num in concerts.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page_num %}
+                    {% if page_num == concerts.page %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('concerts', page=page_num, query=request.args.get('query'), genre=request.args.get('genre'), is_live=request.args.get('is_live')) }}">
+                            {{ page_num }}
+                        </a>
+                    </li>
+                    {% endif %}
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if concerts.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('concerts', page=concerts.next_num, query=request.args.get('query'), genre=request.args.get('genre'), is_live=request.args.get('is_live')) }}">
+                    Next <i class="fa fa-chevron-right"></i>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Next <i class="fa fa-chevron-right"></i></span>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+    
+    {% else %}
+    <!-- No Results -->
+    <div class="text-center py-5">
+        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-music-note-list text-muted mb-3" viewBox="0 0 16 16">
+            <path d="M12 13c0 1.105-1.12 2-2.5 2S7 14.105 7 13s1.12-2 2.5-2 2.5.895 2.5 2z"/>
+            <path fill-rule="evenodd" d="M12 3v10h-1V3h1z"/>
+            <path d="M11 2.82a1 1 0 0 1 .804-.98l3-.6A1 1 0 0 1 16 2.22V4l-5 1V2.82z"/>
+            <path fill-rule="evenodd" d="M0 11.5a.5.5 0 0 1 .5-.5H4a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5zm0-4A.5.5 0 0 1 .5 7H8a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5zm0-4A.5.5 0 0 1 .5 3H8a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5z"/>
+        </svg>
+        <h4>No concerts found</h4>
+        <p class="text-muted">Try adjusting your search criteria or check back later for new concerts.</p>
+        <a href="{{ url_for('concerts') }}" class="btn btn-outline-light mt-2">View All Concerts</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Reset button functionality
+    const resetButton = document.querySelector('button[type="reset"]');
+    if (resetButton) {
+        resetButton.addEventListener('click', function(e) {
+            // Prevent the default reset behavior
+            e.preventDefault();
+            
+            // Manually clear form fields
+            document.getElementById('query').value = '';
+            document.getElementById('genre').value = '';
+            document.getElementById('is_live').checked = false;
+            
+            // Submit the form with cleared values
+            document.getElementById('search-form').submit();
+        });
+    }
+});
+</script>
+{% endblock %}

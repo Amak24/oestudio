@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="mb-0">Admin Panel</h1>
+            <p class="text-muted">Manage users, concerts, and system settings</p>
+        </div>
+    </div>
+
+    <!-- Admin Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="dashboard-stat">
+                <h2 class="mb-0">{{ users|length if users else 0 }}</h2>
+                <p class="text-muted mb-0">Total Users</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="dashboard-stat">
+                <h2 class="mb-0">
+                    {% set artist_count = 0 %}
+                    {% if users %}
+                        {% for user in users %}
+                            {% if user.is_artist %}
+                                {% set artist_count = artist_count + 1 %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                    {{ artist_count }}
+                </h2>
+                <p class="text-muted mb-0">Artists</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="dashboard-stat">
+                <h2 class="mb-0">{{ concerts|length if concerts else 0 }}</h2>
+                <p class="text-muted mb-0">Total Concerts</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="dashboard-stat">
+                <h2 class="mb-0">
+                    {% set live_count = 0 %}
+                    {% if concerts %}
+                        {% for concert in concerts %}
+                            {% if concert.is_live %}
+                                {% set live_count = live_count + 1 %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                    {{ live_count }}
+                </h2>
+                <p class="text-muted mb-0">Live Concerts</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs for different admin sections -->
+    <ul class="nav nav-tabs mb-4" id="adminTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab" aria-controls="users" aria-selected="true">
+                <i class="fa fa-users me-1"></i> Users
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="concerts-tab" data-bs-toggle="tab" data-bs-target="#concerts" type="button" role="tab" aria-controls="concerts" aria-selected="false">
+                <i class="fa fa-music me-1"></i> Concerts
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="adminTabContent">
+        <!-- Users Tab -->
+        <div class="tab-pane fade show active" id="users" role="tabpanel" aria-labelledby="users-tab">
+            <div class="card bg-dark">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">User Management</h4>
+                </div>
+                <div class="card-body p-0">
+                    {% if users %}
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Status</th>
+                                    <th>Joined</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <img src="{{ user.profile_picture }}" class="rounded-circle me-2" width="30" height="30" alt="{{ user.username }}">
+                                            <a href="{{ url_for('user_profile', user_id=user.id) }}" class="text-decoration-none">
+                                                {{ user.username }}
+                                            </a>
+                                        </div>
+                                    </td>
+                                    <td>{{ user.email }}</td>
+                                    <td>
+                                        {% if user.is_admin %}
+                                        <span class="badge bg-danger">Admin</span>
+                                        {% endif %}
+                                        
+                                        {% if user.is_artist %}
+                                        <span class="badge bg-primary">Artist</span>
+                                        {% endif %}
+                                        
+                                        {% if not user.is_admin and not user.is_artist %}
+                                        <span class="badge bg-secondary">User</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            {% if user.id != current_user.id %}
+                                                <form action="{{ url_for('toggle_artist', user_id=user.id) }}" method="POST" class="d-inline">
+                                                    <button type="submit" class="btn btn-sm {% if user.is_artist %}btn-outline-warning{% else %}btn-outline-primary{% endif %}" title="{% if user.is_artist %}Remove artist status{% else %}Make artist{% endif %}">
+                                                        <i class="fa {% if user.is_artist %}fa-user-times{% else %}fa-music{% endif %}"></i>
+                                                    </button>
+                                                </form>
+                                                
+                                                <form action="{{ url_for('toggle_admin', user_id=user.id) }}" method="POST" class="d-inline">
+                                                    <button type="submit" class="btn btn-sm {% if user.is_admin %}btn-outline-warning{% else %}btn-outline-danger{% endif %}" title="{% if user.is_admin %}Remove admin status{% else %}Make admin{% endif %}">
+                                                        <i class="fa {% if user.is_admin %}fa-user-times{% else %}fa-shield{% endif %}"></i>
+                                                    </button>
+                                                </form>
+                                            {% else %}
+                                                <span class="text-muted">Current user</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center p-5">
+                        <h5>No users found.</h5>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Concerts Tab -->
+        <div class="tab-pane fade" id="concerts" role="tabpanel" aria-labelledby="concerts-tab">
+            <div class="card bg-dark">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Concert Management</h4>
+                </div>
+                <div class="card-body p-0">
+                    {% if concerts %}
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Artist</th>
+                                    <th>Genre</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for concert in concerts %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <img src="{{ concert.thumbnail_url }}" class="me-2" alt="{{ concert.title }}" style="width: 40px; height: 24px; object-fit: cover; border-radius: 2px;">
+                                            <a href="{{ url_for('concert', concert_id=concert.id) }}" class="text-decoration-none">
+                                                {{ concert.title }}
+                                            </a>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('user_profile', user_id=concert.artist.id) }}" class="text-decoration-none">
+                                            {{ concert.artist.username }}
+                                        </a>
+                                    </td>
+                                    <td>{{ concert.genre }}</td>
+                                    <td>
+                                        {% if concert.is_live %}
+                                            {% if concert.scheduled_for and concert.scheduled_for > now %}
+                                            <span class="badge bg-primary">Scheduled</span>
+                                            {% else %}
+                                            <span class="badge bg-danger">Live</span>
+                                            {% endif %}
+                                        {% else %}
+                                        <span class="badge bg-secondary">Recorded</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ concert.created_at.strftime('%Y-%m-%d') }}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{{ url_for('edit_concert', concert_id=concert.id) }}" class="btn btn-sm btn-outline-light" title="Edit concert">
+                                                <i class="fa fa-pencil"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteConcertModal{{ concert.id }}" title="Delete concert">
+                                                <i class="fa fa-trash"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Delete Modal -->
+                                        <div class="modal fade" id="deleteConcertModal{{ concert.id }}" tabindex="-1" aria-hidden="true">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content bg-dark">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Delete Concert</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <p>Are you sure you want to delete "{{ concert.title }}" by {{ concert.artist.username }}? This action cannot be undone.</p>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        <form action="{{ url_for('delete_concert', concert_id=concert.id) }}" method="POST">
+                                                            <button type="submit" class="btn btn-danger">Delete</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center p-5">
+                        <h5>No concerts found.</h5>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

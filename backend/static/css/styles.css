@@ -1,0 +1,149 @@
+/* 
+  O Estúdio - Custom CSS
+  This file contains custom styles beyond the Bootstrap defaults.
+  Keep custom styles to a minimum as per the guidelines.
+*/
+
+/* Video player customization */
+.video-container {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background-color: #000;
+  border-radius: 0.5rem;
+}
+
+/* Concert cards */
+.concert-card {
+  transition: transform 0.3s ease;
+  height: 100%;
+}
+
+.concert-card:hover {
+  transform: translateY(-5px);
+}
+
+.concert-thumbnail {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  height: 0;
+  padding-top: 56.25%; /* 16:9 Aspect Ratio */
+}
+
+.concert-thumbnail img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.live-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+}
+
+/* Profile styling */
+.profile-header {
+  position: relative;
+  background-color: var(--bs-dark);
+  padding: 2rem 0;
+  border-radius: 0.5rem;
+}
+
+.profile-image {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid var(--bs-primary);
+}
+
+/* Comments section */
+.comment-box {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1rem 0;
+}
+
+.comment-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Like button animation */
+.like-btn {
+  transition: transform 0.2s ease;
+}
+
+.like-btn:active {
+  transform: scale(1.2);
+}
+
+.like-btn.liked {
+  color: var(--bs-danger);
+}
+
+/* Artist dashboard */
+.dashboard-stat {
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  background-color: rgba(var(--bs-primary-rgb), 0.1);
+}
+
+/* Responsive fixes */
+@media (max-width: 768px) {
+  .profile-image {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .video-js {
+    height: 240px !important;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bs-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--bs-primary);
+  border-radius: 4px;
+}
+
+/* Hero section animation */
+.hero-text {
+  animation: fadeIn 1s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hover effects for buttons */
+.btn-primary, .btn-secondary, .btn-success {
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover, .btn-secondary:hover, .btn-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}

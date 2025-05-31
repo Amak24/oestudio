@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link href="https://vjs.zencdn.net/7.17.0/video-js.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <!-- Video Player and Concert Info -->
+        <div class="col-lg-8">
+            <!-- Video Player -->
+            <div class="video-container mb-4">
+                <video 
+                    id="concert-video" 
+                    class="video-js vjs-big-play-centered vjs-fluid" 
+                    controls 
+                    preload="auto" 
+                    poster="{{ concert.thumbnail_url }}"
+                    data-setup='{}' 
+                    data-is-live="{{ 'true' if concert.is_live else 'false' }}">
+                    <source src="{{ concert.video_url }}" type="video/mp4">
+                    <p class="vjs-no-js">
+                        To view this video please enable JavaScript, and consider upgrading to a
+                        web browser that <a href="https://videojs.com/html5-video-support/" target="_blank">supports HTML5 video</a>
+                    </p>
+                </video>
+            </div>
+            
+            <!-- Concert Info -->
+            <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h1 class="mb-2">{{ concert.title }}</h1>
+                    <div>
+                        <button class="btn like-btn {{ 'liked' if user_like else '' }}" data-concert-id="{{ concert.id }}">
+                            <i class="fa {{ 'fa-heart' if user_like else 'fa-heart-o' }}"></i>
+                            <span id="like-count-{{ concert.id }}">{{ like_count }}</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="d-flex align-items-center mb-3">
+                    <a href="{{ url_for('user_profile', user_id=concert.artist.id) }}" class="text-decoration-none text-light">
+                        <img src="{{ concert.artist.profile_picture }}" class="rounded-circle me-2" width="30" height="30" alt="{{ concert.artist.username }}">
+                        {{ concert.artist.username }}
+                    </a>
+                    
+                    {% if concert.is_live %}
+                    <span class="badge bg-danger ms-3">
+                        <i class="fa fa-circle-o-notch fa-spin me-1"></i> LIVE
+                    </span>
+                    {% endif %}
+                    
+                    <span class="badge bg-secondary ms-3">{{ concert.genre }}</span>
+                    
+                    {% if concert.is_live and concert.scheduled_for %}
+                    <span class="ms-3 text-muted">
+                        <i class="fa fa-calendar me-1"></i> {{ concert.scheduled_for.strftime('%Y-%m-%d %H:%M') }}
+                    </span>
+                    {% endif %}
+                </div>
+                
+                <div class="card bg-dark mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">About this concert</h5>
+                        <p class="card-text">{{ concert.description }}</p>
+                        
+                        <div class="d-flex mt-3">
+                            <div class="me-4">
+                                <i class="fa fa-clock-o me-1"></i> 
+                                {{ (concert.duration // 60)|int }} min {{ (concert.duration % 60)|int }} sec
+                            </div>
+                            <div>
+                                <i class="fa fa-calendar me-1"></i> 
+                                {{ concert.created_at.strftime('%Y-%m-%d') }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Comments Section -->
+            <div class="card bg-dark">
+                <div class="card-header">
+                    <h4 class="mb-0">Comments</h4>
+                </div>
+                <div class="card-body">
+                    {% if current_user.is_authenticated %}
+                    <!-- Comment Form -->
+                    <form id="comment-form" method="POST" action="{{ url_for('add_comment') }}">
+                        {{ comment_form.hidden_tag() }}
+                        {{ comment_form.concert_id() }}
+                        
+                        <div class="mb-3">
+                            {{ comment_form.content(class="form-control", rows="3", placeholder="Add a comment...") }}
+                        </div>
+                        
+                        <div class="mb-4 text-end">
+                            {{ comment_form.submit(class="btn btn-primary") }}
+                        </div>
+                    </form>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <a href="{{ url_for('login') }}">Login</a> or <a href="{{ url_for('register') }}">Register</a> to leave a comment.
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Comments List -->
+                    <div id="comments-list">
+                        {% if comments %}
+                        {% for comment in comments %}
+                        <div id="comment-{{ comment.id }}" class="comment-box">
+                            <div class="d-flex">
+                                <div class="flex-shrink-0">
+                                    <img src="{{ comment.author.profile_picture }}" class="comment-avatar" alt="{{ comment.author.username }}">
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <h5 class="mb-1">
+                                            {{ comment.author.username }} 
+                                            <small class="text-muted">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                        </h5>
+                                        
+                                        {% if current_user.is_authenticated and (current_user.id == comment.user_id or current_user.is_admin) %}
+                                        <button class="btn btn-sm btn-link text-danger delete-comment" data-comment-id="{{ comment.id }}" title="Delete comment">
+                                            <i class="fa fa-trash-o"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                    <p>{{ comment.content }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="text-center py-4">
+                            <p class="text-muted">No comments yet. Be the first to comment!</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if comments and comments|length >= 10 %}
+                    <!-- Load More Comments Button -->
+                    <div class="text-center mt-3">
+                        <button id="load-more-comments" class="btn btn-outline-light" data-page="1" data-concert-id="{{ concert.id }}">
+                            Load more comments
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4 mt-4 mt-lg-0">
+            <!-- Artist Info -->
+            <div class="card bg-dark mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">About the Artist</h5>
+                    
+                    <div class="d-flex align-items-center mb-3">
+                        <img src="{{ concert.artist.profile_picture }}" class="rounded-circle me-3" width="60" height="60" alt="{{ concert.artist.username }}">
+                        <div>
+                            <h5 class="mb-0">{{ concert.artist.username }}</h5>
+                            <p class="text-muted mb-0">{{ concert.artist.bio|truncate(50) if concert.artist.bio else 'No bio provided' }}</p>
+                        </div>
+                    </div>
+                    
+                    <a href="{{ url_for('user_profile', user_id=concert.artist.id) }}" class="btn btn-outline-light w-100">
+                        View Artist Profile
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Similar Concerts -->
+            {% if similar_concerts %}
+            <div class="card bg-dark" id="similar-concerts">
+                <div class="card-header">
+                    <h5 class="mb-0">Similar Concerts</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for similar in similar_concerts %}
+                        <a href="{{ url_for('concert', concert_id=similar.id) }}" class="list-group-item list-group-item-action bg-dark border-light">
+                            <div class="d-flex">
+                                <img src="{{ similar.thumbnail_url }}" class="me-3" alt="{{ similar.title }}" style="width: 100px; height: 56px; object-fit: cover; border-radius: 4px;">
+                                <div>
+                                    <h6 class="mb-1">{{ similar.title }}</h6>
+                                    <small class="text-muted">by {{ similar.artist.username }}</small>
+                                    {% if similar.is_live %}
+                                    <span class="badge bg-danger ms-2">LIVE</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Admin/Artist Controls -->
+            {% if current_user.is_authenticated and (current_user.id == concert.artist_id or current_user.is_admin) %}
+            <div class="card bg-dark mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Concert Controls</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('edit_concert', concert_id=concert.id) }}" class="btn btn-outline-primary">
+                            <i class="fa fa-pencil"></i> Edit Concert
+                        </a>
+                        
+                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteConcertModal">
+                            <i class="fa fa-trash"></i> Delete Concert
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Delete Concert Modal -->
+            <div class="modal fade" id="deleteConcertModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content bg-dark">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Delete Concert</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Are you sure you want to delete "{{ concert.title }}"? This action cannot be undone.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <form action="{{ url_for('delete_concert', concert_id=concert.id) }}" method="POST">
+                                <button type="submit" class="btn btn-danger">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://vjs.zencdn.net/7.17.0/video.min.js"></script>
+<script src="{{ url_for('static', filename='js/video-player.js') }}"></script>
+<script src="{{ url_for('static', filename='js/comments.js') }}"></script>
+{% endblock %}
