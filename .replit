@@ -8,7 +8,7 @@ channel = "stable-24_05"
 run = ["sh", "-c", "python "]
 
 [workflows]
-runButton = "Run Backend"
+runButton = "MVP Full Stack"
 
 [[workflows.workflow]]
 name = "Run Frontend"
@@ -40,3 +40,16 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd backend && python main.py"
+
+[[workflows.workflow]]
+name = "MVP Full Stack"
+author = 3179955
+mode = "parallel"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd backend && python main.py"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd frontend && npm run dev"

@@ -33,6 +33,55 @@ class ConcertForm(FlaskForm):
     video_url = StringField('Video URL', validators=[DataRequired(), URL()])
     thumbnail_url = StringField('Thumbnail URL', validators=[DataRequired(), URL()])
     genre = SelectField('Genre', choices=[
+        ('', 'Select Genre'),
+        ('rock', 'Rock'),
+        ('pop', 'Pop'),
+        ('jazz', 'Jazz'),
+        ('classical', 'Classical'),
+        ('electronic', 'Electronic'),
+        ('folk', 'Folk'),
+        ('hip-hop', 'Hip Hop'),
+        ('country', 'Country'),
+        ('blues', 'Blues'),
+        ('other', 'Other')
+    ], validators=[DataRequired()])
+    duration = StringField('Duration (minutes)', validators=[Optional()])
+    is_live = BooleanField('Live Concert')
+    scheduled_for = DateTimeField('Scheduled For', validators=[Optional()], format='%Y-%m-%dT%H:%M')
+    submit = SubmitField('Create Concert')
+
+
+class CommentForm(FlaskForm):
+    content = TextAreaField('Comment', validators=[DataRequired(), Length(min=1, max=500)])
+    concert_id = HiddenField('Concert ID', validators=[DataRequired()])
+    submit = SubmitField('Post Comment')
+
+
+class SearchForm(FlaskForm):
+    query = StringField('Search', validators=[Optional()])
+    genre = SelectField('Genre', choices=[
+        ('', 'All Genres'),
+        ('rock', 'Rock'),
+        ('pop', 'Pop'),
+        ('jazz', 'Jazz'),
+        ('classical', 'Classical'),
+        ('electronic', 'Electronic'),
+        ('folk', 'Folk'),
+        ('hip-hop', 'Hip Hop'),
+        ('country', 'Country'),
+        ('blues', 'Blues'),
+        ('other', 'Other')
+    ], validators=[Optional()])
+    is_live = BooleanField('Live Only')
+    submit = SubmitField('Search')
+
+
+class ConcertForm(FlaskForm):
+    title = StringField('Title', validators=[DataRequired(), Length(max=256)])
+    description = TextAreaField('Description', validators=[DataRequired()])
+    video_url = StringField('Video URL', validators=[DataRequired(), URL()])
+    thumbnail_url = StringField('Thumbnail URL', validators=[DataRequired(), URL()])
+    genre = SelectField('Genre', choices=[
         ('rock', 'Rock'), 
         ('pop', 'Pop'), 
         ('jazz', 'Jazz'), 
