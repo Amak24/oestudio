@@ -432,6 +432,67 @@ def toggle_admin(user_id):
     return redirect(url_for('admin_panel'))
 
 
+# API Routes for React Frontend
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    data = request.get_json()
+    user = User.query.filter_by(email=data.get('email')).first()
+    if user and user.check_password(data.get('password')):
+        login_user(user)
+        return jsonify({'success': True, 'user': {'id': user.id, 'username': user.username}})
+    return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+
+@app.route('/api/register', methods=['POST'])
+def api_register():
+    data = request.get_json()
+    if User.query.filter_by(email=data.get('email')).first():
+        return jsonify({'success': False, 'message': 'Email already exists'}), 400
+    
+    user = User(
+        username=data.get('username'),
+        email=data.get('email'),
+        is_artist=data.get('is_artist', False)
+    )
+    user.set_password(data.get('password'))
+    db.session.add(user)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'User registered successfully'})
+
+@app.route('/api/concerts', methods=['GET'])
+def api_concerts():
+    concerts = Concert.query.order_by(Concert.created_at.desc()).all()
+    return jsonify([{
+        'id': c.id,
+        'title': c.title,
+        'artist': c.artist.username,
+        'genre': c.genre,
+        'thumbnail_url': c.thumbnail_url,
+        'is_live': c.is_live
+    } for c in concerts])
+
+@app.route('/api/concert/create', methods=['POST'])
+@login_required
+def api_create_concert():
+    data = request.get_json()
+    if not current_user.is_artist:
+        return jsonify({'success': False, 'message': 'Only artists can create concerts'}), 403
+    
+    duration_seconds = int(float(data.get('duration', 0)) * 60)
+    concert = Concert(
+        title=data.get('title'),
+        artist_id=current_user.id,
+        description=data.get('description'),
+        video_url=data.get('video_url'),
+        thumbnail_url=data.get('thumbnail_url'),
+        genre=data.get('genre'),
+        duration=duration_seconds,
+        is_live=data.get('is_live', False),
+        scheduled_for=datetime.fromisoformat(data.get('scheduled_for')) if data.get('scheduled_for') else None
+    )
+    db.session.add(concert)
+    db.session.commit()
+    return jsonify({'success': True, 'concert_id': concert.id})
+
 # Error handlers
 @app.errorhandler(404)
 def not_found_error(error):
