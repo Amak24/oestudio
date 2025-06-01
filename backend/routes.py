@@ -467,7 +467,7 @@ def api_concerts():
         'is_live': concert.is_live
     } for concert in concerts])
 
-@app.route('/api/concerts', methods=['POST'])
+@app.route('/api/register', methods=['POST'])
 def api_register():
     data = request.get_json()
     if User.query.filter_by(email=data.get('email')).first():
