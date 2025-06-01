@@ -445,31 +445,6 @@ def api_login():
 @app.route('/api/register', methods=['POST'])
 def api_register():
     data = request.get_json()
-    user = User(
-        username=data.get('username'),
-        email=data.get('email'),
-        is_artist=data.get('is_artist', False)
-    )
-    user.set_password(data.get('password'))
-    db.session.add(user)
-    db.session.commit()
-    return jsonify({'success': True, 'user': {'id': user.id, 'username': user.username}})
-
-@app.route('/api/concerts', methods=['GET'])
-def api_concerts():
-    concerts = Concert.query.all()
-    return jsonify([{
-        'id': concert.id,
-        'title': concert.title,
-        'description': concert.description,
-        'artist': concert.artist.username,
-        'thumbnail_url': concert.thumbnail_url,
-        'is_live': concert.is_live
-    } for concert in concerts])
-
-@app.route('/api/register', methods=['POST'])
-def api_register():
-    data = request.get_json()
     if User.query.filter_by(email=data.get('email')).first():
         return jsonify({'success': False, 'message': 'Email already exists'}), 400
     
