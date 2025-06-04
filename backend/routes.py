@@ -49,7 +49,7 @@ def login():
         
         login_user(user, remember=form.remember_me.data)
         next_page = request.args.get('next')
-        return redirect(next_page or url_for('index'))
+        return redirect(next_page or url_for('profile'))
     
     return render_template('login.html', title='Sign In', form=form)
 
