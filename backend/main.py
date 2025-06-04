@@ -1,6 +1,12 @@
 from app import app
-from routes import *  # Import all routes
-from models import *  # Import all models
+
+# Import routes and models to register them with the app
+# These imports must happen after app initialization
+try:
+    import routes
+    import models
+except ImportError as e:
+    print(f"Warning: Could not import modules: {e}")
 
 # Make sure the app is available for Gunicorn to import
 application = app
