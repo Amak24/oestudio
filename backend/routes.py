@@ -610,5 +610,20 @@ def seed_demo():
         )
         db.session.add(demo_concert)
     
+    # Create Heavenly Sleep Prayers concert
+    sleep_prayers = Concert.query.filter_by(title='Heavenly Sleep Prayers - Peaceful Music').first()
+    if not sleep_prayers:
+        sleep_prayers = Concert(
+            title='Heavenly Sleep Prayers - Peaceful Music',
+            artist_id=neyo.id,  # Using Ne-Yo as artist for now, could create a new artist
+            description='Experience deep relaxation and peaceful sleep with these heavenly prayers and soothing music. Perfect for meditation, prayer time, or falling asleep to calming spiritual content.',
+            video_url='https://www.youtube.com/embed/uaICIX5AXaQ',
+            thumbnail_url='https://i.ytimg.com/vi/uaICIX5AXaQ/maxresdefault.jpg',
+            genre='Spiritual',
+            duration=3600,  # Assuming 1 hour duration
+            is_live=False
+        )
+        db.session.add(sleep_prayers)
+    
     db.session.commit()
     return "Demo data seeded successfully!"
