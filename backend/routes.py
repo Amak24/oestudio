@@ -16,48 +16,20 @@ def index():
         .order_by(Concert.scheduled_for)\
         .limit(6).all()
     
-    # Get popular recorded concerts
-    popular_recorded = db.session.query(Concert, db.func.count(Like.id).label('like_count'))\
+    # Get popular recorded concerts (optimized)
+    popular_recorded_query = db.session.query(Concert, db.func.count(Like.id).label('like_count'))\
         .outerjoin(Like)\
         .filter(Concert.is_live == False)\
         .group_by(Concert.id)\
         .order_by(db.desc('like_count'))\
-        .limit(6).all()
+        .limit(6)
     
-    popular_recorded = [concert for concert, _ in popular_recorded]
+    popular_recorded = [concert for concert, _ in popular_recorded_query.all()]
     
-    # Get featured concert (Ne-Yo demo or most popular)
+    # Get featured concert (optimized)
     featured_concert = Concert.query.filter_by(title='Ne-Yo Live at NPR Music Tiny Desk Concert').first()
     
-    # If Ne-Yo concert doesn't exist, create it
-    if not featured_concert:
-        neyo = User.query.filter_by(username='Ne-Yo').first()
-        if not neyo:
-            neyo = User(
-                username='Ne-Yo',
-                email='neyo@oestudio.com',
-                is_artist=True,
-                bio='Grammy Award-winning R&B singer, songwriter, and producer known for hits like "So Sick" and "Miss Independent".',
-                profile_picture='https://i.ytimg.com/vi/vR6_ZVKEhJ4/maxresdefault.jpg'
-            )
-            neyo.set_password('neyo123')
-            db.session.add(neyo)
-            db.session.flush()
-        
-        featured_concert = Concert(
-            title='Ne-Yo Live at NPR Music Tiny Desk Concert',
-            artist_id=neyo.id,
-            description='Experience Ne-Yo\'s incredible acoustic performance at NPR Music\'s Tiny Desk Concert. Watch as he performs stripped-down versions of his biggest hits in an intimate setting.',
-            video_url='https://www.youtube.com/embed/vR6_ZVKEhJ4',
-            thumbnail_url='https://i.ytimg.com/vi/vR6_ZVKEhJ4/maxresdefault.jpg',
-            genre='R&B',
-            duration=1200,  # 20 minutes
-            is_live=False
-        )
-        db.session.add(featured_concert)
-        db.session.commit()
-    
-    # Fallback to most popular if still no featured concert
+    # Fallback to most popular if no featured concert
     if not featured_concert and popular_recorded:
         featured_concert = popular_recorded[0]
     

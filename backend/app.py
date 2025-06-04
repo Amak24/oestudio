@@ -24,6 +24,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:/
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
+    "connect_args": {"check_same_thread": False} if "sqlite" in os.environ.get("DATABASE_URL", "sqlite:///oestudio.db") else {}
 }
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
