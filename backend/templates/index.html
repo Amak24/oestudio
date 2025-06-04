@@ -19,6 +19,79 @@
     </div>
 </section>
 
+<!-- Featured Video Section -->
+{% set featured_concert = featured_concert or None %}
+{% if featured_concert %}
+<section class="py-5 bg-dark">
+    <div class="container">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="text-center">
+                    <span class="badge bg-warning text-dark me-2">FEATURED</span>
+                    Experience O Estúdio
+                </h2>
+                <p class="text-center text-muted">Watch this exclusive performance and see what makes our platform special</p>
+            </div>
+        </div>
+        
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card bg-secondary border-0">
+                    <div class="row g-0">
+                        <div class="col-md-8">
+                            <!-- Video Embed -->
+                            <div class="ratio ratio-16x9">
+                                <iframe 
+                                    src="{{ featured_concert.video_url }}"
+                                    title="{{ featured_concert.title }}"
+                                    frameborder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowfullscreen
+                                    class="rounded-start">
+                                </iframe>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card-body h-100 d-flex flex-column">
+                                <h5 class="card-title">{{ featured_concert.title }}</h5>
+                                <p class="card-text">
+                                    <small class="text-muted">
+                                        <i class="fa fa-user"></i> {{ featured_concert.artist.username }}
+                                        <span class="ms-2">
+                                            <i class="fa fa-music"></i> {{ featured_concert.genre }}
+                                        </span>
+                                    </small>
+                                </p>
+                                <p class="card-text flex-grow-1">{{ featured_concert.description|truncate(150) }}</p>
+                                
+                                <!-- Interaction buttons -->
+                                <div class="mt-auto">
+                                    {% if current_user.is_authenticated %}
+                                    <div class="d-flex gap-2 mb-3">
+                                        {% set user_like = current_user.likes.filter_by(concert_id=featured_concert.id).first() %}
+                                        <form method="POST" action="{{ url_for('like_concert', concert_id=featured_concert.id) }}" class="d-inline">
+                                            <button type="submit" class="btn btn-sm {{ 'btn-danger' if user_like else 'btn-outline-danger' }}">
+                                                <i class="fa fa-heart"></i> 
+                                                {{ featured_concert.likes.count() }}
+                                            </button>
+                                        </form>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <a href="{{ url_for('concert', concert_id=featured_concert.id) }}" class="btn btn-primary w-100">
+                                        <i class="fa fa-play-circle"></i> Watch Full Concert
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
 <!-- Live Now Section (if any concerts are currently live) -->
 {% set now = now or datetime.utcnow() %}
 {% set live_now = upcoming_live|selectattr('is_live', 'eq', True)|selectattr('scheduled_for', 'le', now)|list %}

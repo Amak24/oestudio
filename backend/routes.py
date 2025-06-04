@@ -26,9 +26,15 @@ def index():
     
     popular_recorded = [concert for concert, _ in popular_recorded]
     
+    # Get featured concert (Ne-Yo demo or most popular)
+    featured_concert = Concert.query.filter_by(title='Ne-Yo Live at NPR Music Tiny Desk Concert').first()
+    if not featured_concert and popular_recorded:
+        featured_concert = popular_recorded[0]
+    
     return render_template('index.html', 
                           upcoming_live=upcoming_live,
                           popular_recorded=popular_recorded,
+                          featured_concert=featured_concert,
                           datetime=datetime,
                           now=datetime.utcnow(),
                           title="O Estúdio - Live Concert Streaming")
@@ -540,3 +546,39 @@ def seed_admin():
         db.session.commit()
         return "Admin user created!"
     return "Admin user already exists!"
+
+
+# Seed demo data including Ne-Yo video
+@app.route('/seed_demo', methods=['GET'])
+def seed_demo():
+    # Create Ne-Yo artist if doesn't exist
+    neyo = User.query.filter_by(username='Ne-Yo').first()
+    if not neyo:
+        neyo = User(
+            username='Ne-Yo',
+            email='neyo@oestudio.com',
+            is_artist=True,
+            bio='Grammy Award-winning R&B singer, songwriter, and producer known for hits like "So Sick" and "Miss Independent".',
+            profile_picture='https://i.ytimg.com/vi/vR6_ZVKEhJ4/maxresdefault.jpg'
+        )
+        neyo.set_password('neyo123')
+        db.session.add(neyo)
+        db.session.flush()  # Get the ID
+    
+    # Check if demo concert already exists
+    demo_concert = Concert.query.filter_by(title='Ne-Yo Live at NPR Music Tiny Desk Concert').first()
+    if not demo_concert:
+        demo_concert = Concert(
+            title='Ne-Yo Live at NPR Music Tiny Desk Concert',
+            artist_id=neyo.id,
+            description='Experience Ne-Yo\'s incredible acoustic performance at NPR Music\'s Tiny Desk Concert. Watch as he performs stripped-down versions of his biggest hits in an intimate setting.',
+            video_url='https://www.youtube.com/embed/vR6_ZVKEhJ4',
+            thumbnail_url='https://i.ytimg.com/vi/vR6_ZVKEhJ4/maxresdefault.jpg',
+            genre='R&B',
+            duration=1200,  # 20 minutes
+            is_live=False
+        )
+        db.session.add(demo_concert)
+    
+    db.session.commit()
+    return "Demo data seeded successfully!"
