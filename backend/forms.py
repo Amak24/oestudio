@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, TextAreaField, BooleanField, SelectField, DateTimeField, FileField, SubmitField, HiddenField
-from wtforms.validators import DataRequired, Email, EqualTo, Length, URL, Optional
+from wtforms.validators import DataRequired, Email, EqualTo, Length, URL, Optional, ValidationError
 
 
 class LoginForm(FlaskForm):
@@ -17,6 +17,18 @@ class RegistrationForm(FlaskForm):
     confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
     is_artist = BooleanField('Register as an Artist')
     submit = SubmitField('Register')
+    
+    def validate_username(self, username):
+        from models import User
+        user = User.query.filter_by(username=username.data).first()
+        if user:
+            raise ValidationError('Username already exists. Please choose a different one.')
+    
+    def validate_email(self, email):
+        from models import User
+        user = User.query.filter_by(email=email.data).first()
+        if user:
+            raise ValidationError('Email already registered. Please use a different email.')
 
 
 class ProfileForm(FlaskForm):
@@ -76,49 +88,4 @@ class SearchForm(FlaskForm):
     submit = SubmitField('Search')
 
 
-class ConcertForm(FlaskForm):
-    title = StringField('Title', validators=[DataRequired(), Length(max=256)])
-    description = TextAreaField('Description', validators=[DataRequired()])
-    video_url = StringField('Video URL', validators=[DataRequired(), URL()])
-    thumbnail_url = StringField('Thumbnail URL', validators=[DataRequired(), URL()])
-    genre = SelectField('Genre', choices=[
-        ('rock', 'Rock'), 
-        ('pop', 'Pop'), 
-        ('jazz', 'Jazz'), 
-        ('classical', 'Classical'),
-        ('hiphop', 'Hip Hop'),
-        ('electronic', 'Electronic'),
-        ('folk', 'Folk'),
-        ('country', 'Country'),
-        ('indie', 'Indie'),
-        ('other', 'Other')
-    ])
-    duration = StringField('Duration (in minutes)', validators=[DataRequired()])
-    is_live = BooleanField('Is Live Concert')
-    scheduled_for = DateTimeField('Scheduled For', format='%Y-%m-%dT%H:%M', validators=[Optional()])
-    submit = SubmitField('Create Concert')
 
-
-class CommentForm(FlaskForm):
-    content = TextAreaField('Comment', validators=[DataRequired(), Length(min=1, max=500)])
-    concert_id = HiddenField('Concert ID', validators=[DataRequired()])
-    submit = SubmitField('Post Comment')
-
-
-class SearchForm(FlaskForm):
-    query = StringField('Search', validators=[Optional()])
-    genre = SelectField('Genre', choices=[
-        ('', 'All Genres'),
-        ('rock', 'Rock'), 
-        ('pop', 'Pop'), 
-        ('jazz', 'Jazz'), 
-        ('classical', 'Classical'),
-        ('hiphop', 'Hip Hop'),
-        ('electronic', 'Electronic'),
-        ('folk', 'Folk'),
-        ('country', 'Country'),
-        ('indie', 'Indie'),
-        ('other', 'Other')
-    ], validators=[Optional()])
-    is_live = BooleanField('Live Concerts Only')
-    submit = SubmitField('Search')

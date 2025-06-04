@@ -61,16 +61,34 @@ def register():
     
     form = RegistrationForm()
     if form.validate_on_submit():
-        user = User(username=form.username.data, 
-                   email=form.email.data,
-                   is_artist=form.is_artist.data)
-        user.set_password(form.password.data)
+        # Check if user already exists
+        existing_user = User.query.filter(
+            (User.username == form.username.data) | 
+            (User.email == form.email.data)
+        ).first()
         
-        db.session.add(user)
-        db.session.commit()
+        if existing_user:
+            if existing_user.username == form.username.data:
+                flash('Username already exists. Please choose a different one.', 'danger')
+            else:
+                flash('Email already registered. Please use a different email.', 'danger')
+            return render_template('register.html', title='Register', form=form)
         
-        flash('Congratulations, you are now registered!', 'success')
-        return redirect(url_for('login'))
+        try:
+            user = User(username=form.username.data, 
+                       email=form.email.data,
+                       is_artist=form.is_artist.data)
+            user.set_password(form.password.data)
+            
+            db.session.add(user)
+            db.session.commit()
+            
+            flash('Congratulations, you are now registered!', 'success')
+            return redirect(url_for('login'))
+        except Exception as e:
+            db.session.rollback()
+            flash('An error occurred during registration. Please try again.', 'danger')
+            app.logger.error(f'Registration error: {str(e)}')
     
     return render_template('register.html', title='Register', form=form)
 
