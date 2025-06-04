@@ -4,3 +4,7 @@ WTForms
 email-validator
 pytest
 pytest-flask
+gunicorn
+flask-login
+flask-sqlalchemy
+werkzeug
