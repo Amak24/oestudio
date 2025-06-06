@@ -1,7 +1,10 @@
-from flask import render_template, redirect, url_for, flash, request, jsonify, abort
+from flask import render_template, redirect, url_for, flash, request, jsonify, abort, send_from_directory
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash
+from werkzeug.utils import secure_filename
 from datetime import datetime
+import os
+import uuid
 from app import app, db
 from models import User, Concert, Comment, Like
 from forms import LoginForm, RegistrationForm, ProfileForm, ConcertForm, CommentForm, SearchForm
@@ -210,6 +213,33 @@ def concert(concert_id):
                           similar_concerts=similar_concerts)
 
 
+def allowed_file(filename, allowed_extensions):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
+def save_uploaded_file(file, upload_folder, allowed_extensions):
+    if file and allowed_file(file.filename, allowed_extensions):
+        # Create upload directory if it doesn't exist
+        os.makedirs(upload_folder, exist_ok=True)
+        
+        # Generate unique filename
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        filepath = os.path.join(upload_folder, unique_filename)
+        
+        file.save(filepath)
+        return unique_filename
+    return None
+
+def extract_youtube_id(url):
+    """Extract YouTube video ID from various YouTube URL formats"""
+    import re
+    youtube_regex = re.compile(
+        r'(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})'
+    )
+    match = youtube_regex.search(url)
+    return match.group(1) if match else None
+
 @app.route('/concert/create', methods=['GET', 'POST'])
 @login_required
 def create_concert():
@@ -225,12 +255,54 @@ def create_concert():
         except ValueError:
             duration_seconds = 0
         
+        # Handle video upload or URL
+        video_url = ""
+        thumbnail_url = ""
+        
+        if form.video_type.data == 'upload':
+            # Handle video file upload
+            video_file = save_uploaded_file(
+                form.video_file.data, 
+                'backend/static/uploads/videos',
+                {'mp4', 'avi', 'mov', 'mkv', 'webm'}
+            )
+            if video_file:
+                video_url = f"/static/uploads/videos/{video_file}"
+            else:
+                flash('Invalid video file format. Please use MP4, AVI, MOV, MKV, or WebM.', 'danger')
+                return render_template('artist_dashboard.html', title='Create Concert', form=form)
+        else:
+            # Handle YouTube URL
+            video_url = form.video_url.data
+            youtube_id = extract_youtube_id(video_url)
+            if youtube_id:
+                video_url = f"https://www.youtube.com/embed/{youtube_id}"
+                # Auto-generate thumbnail if not provided
+                if not form.thumbnail_url.data:
+                    thumbnail_url = f"https://i.ytimg.com/vi/{youtube_id}/maxresdefault.jpg"
+        
+        # Handle thumbnail upload or URL
+        if form.thumbnail_file.data:
+            thumbnail_file = save_uploaded_file(
+                form.thumbnail_file.data,
+                'backend/static/uploads/thumbnails',
+                {'jpg', 'jpeg', 'png', 'gif', 'webp'}
+            )
+            if thumbnail_file:
+                thumbnail_url = f"/static/uploads/thumbnails/{thumbnail_file}"
+        elif form.thumbnail_url.data:
+            thumbnail_url = form.thumbnail_url.data
+        
+        # Fallback thumbnail
+        if not thumbnail_url:
+            thumbnail_url = "/static/css/default-thumbnail.jpg"
+        
         concert = Concert(
             title=form.title.data,
             artist_id=current_user.id,
             description=form.description.data,
-            video_url=form.video_url.data,
-            thumbnail_url=form.thumbnail_url.data,
+            video_url=video_url,
+            thumbnail_url=thumbnail_url,
             genre=form.genre.data,
             duration=duration_seconds,
             is_live=form.is_live.data,
@@ -244,6 +316,11 @@ def create_concert():
         return redirect(url_for('concert', concert_id=concert.id))
     
     return render_template('artist_dashboard.html', title='Create Concert', form=form)
+
+# Route to serve uploaded files
+@app.route('/static/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory('static/uploads', filename)
 
 
 @app.route('/concert/<int:concert_id>/edit', methods=['GET', 'POST'])
@@ -456,6 +533,92 @@ def toggle_admin(user_id):
     
     flash(f'Admin status for {user.username} has been updated', 'success')
     return redirect(url_for('admin_panel'))
+
+
+@app.route('/admin/users')
+@login_required
+def manage_users():
+    if not current_user.is_admin:
+        flash('You do not have access to user management', 'danger')
+        return redirect(url_for('index'))
+    
+    page = request.args.get('page', 1, type=int)
+    search = request.args.get('search', '', type=str)
+    
+    # Base query
+    query = User.query
+    
+    # Apply search filter
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.filter(
+            (User.username.like(search_pattern)) | 
+            (User.email.like(search_pattern))
+        )
+    
+    # Paginate results
+    users = query.order_by(User.created_at.desc()).paginate(
+        page=page, per_page=20, error_out=False
+    )
+    
+    return render_template('user_management.html', 
+                          title='User Management', 
+                          users=users, 
+                          search=search)
+
+
+@app.route('/admin/user/<int:user_id>/delete', methods=['POST'])
+@login_required
+def delete_user(user_id):
+    if not current_user.is_admin:
+        flash('You do not have permission', 'danger')
+        return redirect(url_for('index'))
+    
+    # Prevent deleting self
+    if user_id == current_user.id:
+        flash('You cannot delete your own account', 'danger')
+        return redirect(url_for('manage_users'))
+    
+    user = User.query.get_or_404(user_id)
+    
+    # Delete user concerts first (cascade should handle this, but being explicit)
+    Concert.query.filter_by(artist_id=user.id).delete()
+    
+    db.session.delete(user)
+    db.session.commit()
+    
+    flash(f'User {user.username} has been deleted', 'success')
+    return redirect(url_for('manage_users'))
+
+
+@app.route('/admin/user/create', methods=['GET', 'POST'])
+@login_required
+def create_user():
+    if not current_user.is_admin:
+        flash('You do not have permission', 'danger')
+        return redirect(url_for('index'))
+    
+    form = RegistrationForm()
+    if form.validate_on_submit():
+        try:
+            user = User(
+                username=form.username.data,
+                email=form.email.data,
+                is_artist=form.is_artist.data
+            )
+            user.set_password(form.password.data)
+            
+            db.session.add(user)
+            db.session.commit()
+            
+            flash(f'User {user.username} has been created successfully!', 'success')
+            return redirect(url_for('manage_users'))
+        except Exception as e:
+            db.session.rollback()
+            flash('An error occurred while creating the user.', 'danger')
+            app.logger.error(f'User creation error: {str(e)}')
+    
+    return render_template('create_user.html', title='Create User', form=form)
 
 
 # API Routes for React Frontend

@@ -42,11 +42,17 @@
                         <a class="nav-link" href="{{ url_for('artist_dashboard') }}">Artist Dashboard</a>
                     </li>
                     {% endif %}
-                    {% if current_user.is_authenticated and current_user.is_admin %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('admin_panel') }}">Admin Panel</a>
-                    </li>
-                    {% endif %}
+                    {% if current_user.is_admin %}
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                                    Admin
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{{ url_for('admin_panel') }}">Dashboard</a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('manage_users') }}">Manage Users</a></li>
+                                </ul>
+                            </li>
+                            {% endif %}
                 </ul>
                 <div class="d-flex align-items-center">
                     <form class="d-flex me-2" action="{{ url_for('concerts') }}" method="get">

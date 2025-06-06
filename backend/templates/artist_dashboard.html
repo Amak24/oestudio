@@ -25,11 +25,11 @@
                     Create New Concert
                 {% endif %}
             </h3>
-            
-            <form method="POST" 
+
+            <form method="POST" enctype="multipart/form-data"
                   action="{{ url_for('edit_concert', concert_id=concert.id) if editing and concert else url_for('create_concert') }}">
                 {{ form.hidden_tag() }}
-                
+
                 <div class="row mb-3">
                     <div class="col-md-8">
                         <label for="title" class="form-label">{{ form.title.label }}</label>
@@ -42,7 +42,7 @@
                         </div>
                         {% endif %}
                     </div>
-                    
+
                     <div class="col-md-4">
                         <label for="genre" class="form-label">{{ form.genre.label }}</label>
                         {{ form.genre(class="form-select", id="genre") }}
@@ -55,7 +55,7 @@
                         {% endif %}
                     </div>
                 </div>
-                
+
                 <div class="mb-3">
                     <label for="description" class="form-label">{{ form.description.label }}</label>
                     {{ form.description(class="form-control", id="description", rows="4") }}
@@ -67,21 +67,50 @@
                     </div>
                     {% endif %}
                 </div>
-                
+
                 <div class="row mb-3">
                     <div class="col-md-6">
+                        <label for="video_type" class="form-label">{{ form.video_type.label }}</label>
+                        {{ form.video_type(class="form-select", id="video_type") }}
+                        {% if form.video_type.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.video_type.errors %}
+                                    <span>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6" id="video_url_group">
                         <label for="video_url" class="form-label">{{ form.video_url.label }}</label>
                         {{ form.video_url(class="form-control", id="video_url") }}
                         {% if form.video_url.errors %}
-                        <div class="invalid-feedback d-block">
-                            {% for error in form.video_url.errors %}
-                            <span>{{ error }}</span>
-                            {% endfor %}
-                        </div>
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.video_url.errors %}
+                                    <span>{{ error }}</span>
+                                {% endfor %}
+                            </div>
                         {% endif %}
-                        <div class="form-text">Enter a valid URL to your video file (MP4 format recommended).</div>
+                        <div class="form-text">Enter a valid URL to your video (YouTube, Vimeo, etc.).</div>
                     </div>
-                    
+
+                    <div class="col-md-6" id="video_file_group" style="display: none;">
+                        <label for="video_file" class="form-label">{{ form.video_file.label }}</label>
+                        {{ form.video_file(class="form-control", id="video_file", type="file") }}
+                        {% if form.video_file.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.video_file.errors %}
+                                    <span>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">Upload a video file (MP4, AVI, MOV, etc.).</div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
                     <div class="col-md-6">
                         <label for="thumbnail_url" class="form-label">{{ form.thumbnail_url.label }}</label>
                         {{ form.thumbnail_url(class="form-control", id="thumbnail_url") }}
@@ -94,8 +123,21 @@
                         {% endif %}
                         <div class="form-text">Enter a valid URL to your thumbnail image.</div>
                     </div>
+
+                     <div class="col-md-6">
+                        <label for="thumbnail_file" class="form-label">{{ form.thumbnail_file.label }}</label>
+                        {{ form.thumbnail_file(class="form-control", id="thumbnail_file", type="file") }}
+                        {% if form.thumbnail_file.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.thumbnail_file.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        <div class="form-text">Upload a thumbnail image (JPG, PNG, etc.).</div>
+                    </div>
                 </div>
-                
+
                 <div class="row mb-3">
                     <div class="col-md-4">
                         <label for="duration" class="form-label">{{ form.duration.label }}</label>
@@ -109,13 +151,13 @@
                         {% endif %}
                         <div class="form-text">Enter the duration in minutes (e.g., 45 for 45 minutes).</div>
                     </div>
-                    
+
                     <div class="col-md-8">
                         <div class="form-check mt-4">
                             {{ form.is_live(class="form-check-input", id="is_live") }}
                             <label class="form-check-label" for="is_live">{{ form.is_live.label }}</label>
                         </div>
-                        
+
                         <div id="scheduled_for_group" class="mt-3" style="display: none;">
                             <label for="scheduled_for" class="form-label">{{ form.scheduled_for.label }}</label>
                             {{ form.scheduled_for(class="form-control", id="scheduled_for", type="datetime-local") }}
@@ -129,7 +171,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                     {% if editing %}
                     <a href="{{ url_for('concert', concert_id=concert.id) }}" class="btn btn-secondary">Cancel</a>
@@ -240,7 +282,7 @@
                                         <i class="fa fa-trash"></i>
                                     </button>
                                 </div>
-                                
+
                                 <!-- Delete Modal -->
                                 <div class="modal fade" id="deleteConcertModal{{ concert.id }}" tabindex="-1" aria-hidden="true">
                                     <div class="modal-dialog">
@@ -288,15 +330,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle "Is Live" checkbox to show/hide scheduled date
     const isLiveCheckbox = document.getElementById('is_live');
     const scheduledForGroup = document.getElementById('scheduled_for_group');
-    
+
     if (isLiveCheckbox && scheduledForGroup) {
         // Initial state
         scheduledForGroup.style.display = isLiveCheckbox.checked ? 'block' : 'none';
-        
+
         // Handle changes
         isLiveCheckbox.addEventListener('change', function() {
             scheduledForGroup.style.display = this.checked ? 'block' : 'none';
-            
+
             // Set default datetime if empty
             const scheduledForField = document.getElementById('scheduled_for');
             if (this.checked && scheduledForField && scheduledForField.value === '') {
@@ -306,6 +348,29 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+});
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const videoTypeSelect = document.getElementById('video_type');
+    const videoUrlGroup = document.getElementById('video_url_group');
+    const videoFileGroup = document.getElementById('video_file_group');
+
+    function toggleVideoFields() {
+        if (videoTypeSelect.value === 'upload') {
+            videoUrlGroup.style.display = 'none';
+            videoFileGroup.style.display = 'block';
+        } else {
+            videoUrlGroup.style.display = 'block';
+            videoFileGroup.style.display = 'none';
+        }
+    }
+
+    videoTypeSelect.addEventListener('change', toggleVideoFields);
+    toggleVideoFields(); // Initialize on page load
 });
 </script>
 {% endblock %}
