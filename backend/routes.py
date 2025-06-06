@@ -1,7 +1,10 @@
-from flask import render_template, redirect, url_for, flash, request, jsonify, abort
+from flask import render_template, redirect, url_for, flash, request, jsonify, abort, send_from_directory
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash
+from werkzeug.utils import secure_filename
 from datetime import datetime
+import os
+import uuid
 from app import app, db
 from models import User, Concert, Comment, Like
 from forms import LoginForm, RegistrationForm, ProfileForm, ConcertForm, CommentForm, SearchForm
@@ -16,19 +19,27 @@ def index():
         .order_by(Concert.scheduled_for)\
         .limit(6).all()
     
-    # Get popular recorded concerts
-    popular_recorded = db.session.query(Concert, db.func.count(Like.id).label('like_count'))\
+    # Get popular recorded concerts (optimized)
+    popular_recorded_query = db.session.query(Concert, db.func.count(Like.id).label('like_count'))\
         .outerjoin(Like)\
         .filter(Concert.is_live == False)\
         .group_by(Concert.id)\
         .order_by(db.desc('like_count'))\
-        .limit(6).all()
+        .limit(6)
     
-    popular_recorded = [concert for concert, _ in popular_recorded]
+    popular_recorded = [concert for concert, _ in popular_recorded_query.all()]
+    
+    # Get featured concert (optimized)
+    featured_concert = Concert.query.filter_by(title='Ne-Yo Live at NPR Music Tiny Desk Concert').first()
+    
+    # Fallback to most popular if no featured concert
+    if not featured_concert and popular_recorded:
+        featured_concert = popular_recorded[0]
     
     return render_template('index.html', 
                           upcoming_live=upcoming_live,
                           popular_recorded=popular_recorded,
+                          featured_concert=featured_concert,
                           datetime=datetime,
                           now=datetime.utcnow(),
                           title="O Estúdio - Live Concert Streaming")
@@ -49,7 +60,7 @@ def login():
         
         login_user(user, remember=form.remember_me.data)
         next_page = request.args.get('next')
-        return redirect(next_page or url_for('index'))
+        return redirect(next_page or url_for('profile'))
     
     return render_template('login.html', title='Sign In', form=form)
 
@@ -61,16 +72,34 @@ def register():
     
     form = RegistrationForm()
     if form.validate_on_submit():
-        user = User(username=form.username.data, 
-                   email=form.email.data,
-                   is_artist=form.is_artist.data)
-        user.set_password(form.password.data)
+        # Check if user already exists
+        existing_user = User.query.filter(
+            (User.username == form.username.data) | 
+            (User.email == form.email.data)
+        ).first()
         
-        db.session.add(user)
-        db.session.commit()
+        if existing_user:
+            if existing_user.username == form.username.data:
+                flash('Username already exists. Please choose a different one.', 'danger')
+            else:
+                flash('Email already registered. Please use a different email.', 'danger')
+            return render_template('register.html', title='Register', form=form)
         
-        flash('Congratulations, you are now registered!', 'success')
-        return redirect(url_for('login'))
+        try:
+            user = User(username=form.username.data, 
+                       email=form.email.data,
+                       is_artist=form.is_artist.data)
+            user.set_password(form.password.data)
+            
+            db.session.add(user)
+            db.session.commit()
+            
+            flash('Congratulations, you are now registered!', 'success')
+            return redirect(url_for('login'))
+        except Exception as e:
+            db.session.rollback()
+            flash('An error occurred during registration. Please try again.', 'danger')
+            app.logger.error(f'Registration error: {str(e)}')
     
     return render_template('register.html', title='Register', form=form)
 
@@ -184,6 +213,33 @@ def concert(concert_id):
                           similar_concerts=similar_concerts)
 
 
+def allowed_file(filename, allowed_extensions):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
+def save_uploaded_file(file, upload_folder, allowed_extensions):
+    if file and allowed_file(file.filename, allowed_extensions):
+        # Create upload directory if it doesn't exist
+        os.makedirs(upload_folder, exist_ok=True)
+        
+        # Generate unique filename
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        filepath = os.path.join(upload_folder, unique_filename)
+        
+        file.save(filepath)
+        return unique_filename
+    return None
+
+def extract_youtube_id(url):
+    """Extract YouTube video ID from various YouTube URL formats"""
+    import re
+    youtube_regex = re.compile(
+        r'(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})'
+    )
+    match = youtube_regex.search(url)
+    return match.group(1) if match else None
+
 @app.route('/concert/create', methods=['GET', 'POST'])
 @login_required
 def create_concert():
@@ -199,12 +255,54 @@ def create_concert():
         except ValueError:
             duration_seconds = 0
         
+        # Handle video upload or URL
+        video_url = ""
+        thumbnail_url = ""
+        
+        if form.video_type.data == 'upload':
+            # Handle video file upload
+            video_file = save_uploaded_file(
+                form.video_file.data, 
+                'backend/static/uploads/videos',
+                {'mp4', 'avi', 'mov', 'mkv', 'webm'}
+            )
+            if video_file:
+                video_url = f"/static/uploads/videos/{video_file}"
+            else:
+                flash('Invalid video file format. Please use MP4, AVI, MOV, MKV, or WebM.', 'danger')
+                return render_template('artist_dashboard.html', title='Create Concert', form=form)
+        else:
+            # Handle YouTube URL
+            video_url = form.video_url.data
+            youtube_id = extract_youtube_id(video_url)
+            if youtube_id:
+                video_url = f"https://www.youtube.com/embed/{youtube_id}"
+                # Auto-generate thumbnail if not provided
+                if not form.thumbnail_url.data:
+                    thumbnail_url = f"https://i.ytimg.com/vi/{youtube_id}/maxresdefault.jpg"
+        
+        # Handle thumbnail upload or URL
+        if form.thumbnail_file.data:
+            thumbnail_file = save_uploaded_file(
+                form.thumbnail_file.data,
+                'backend/static/uploads/thumbnails',
+                {'jpg', 'jpeg', 'png', 'gif', 'webp'}
+            )
+            if thumbnail_file:
+                thumbnail_url = f"/static/uploads/thumbnails/{thumbnail_file}"
+        elif form.thumbnail_url.data:
+            thumbnail_url = form.thumbnail_url.data
+        
+        # Fallback thumbnail
+        if not thumbnail_url:
+            thumbnail_url = "/static/css/default-thumbnail.jpg"
+        
         concert = Concert(
             title=form.title.data,
             artist_id=current_user.id,
             description=form.description.data,
-            video_url=form.video_url.data,
-            thumbnail_url=form.thumbnail_url.data,
+            video_url=video_url,
+            thumbnail_url=thumbnail_url,
             genre=form.genre.data,
             duration=duration_seconds,
             is_live=form.is_live.data,
@@ -218,6 +316,11 @@ def create_concert():
         return redirect(url_for('concert', concert_id=concert.id))
     
     return render_template('artist_dashboard.html', title='Create Concert', form=form)
+
+# Route to serve uploaded files
+@app.route('/static/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory('static/uploads', filename)
 
 
 @app.route('/concert/<int:concert_id>/edit', methods=['GET', 'POST'])
@@ -432,6 +535,153 @@ def toggle_admin(user_id):
     return redirect(url_for('admin_panel'))
 
 
+@app.route('/admin/users')
+@login_required
+def manage_users():
+    if not current_user.is_admin:
+        flash('You do not have access to user management', 'danger')
+        return redirect(url_for('index'))
+    
+    page = request.args.get('page', 1, type=int)
+    search = request.args.get('search', '', type=str)
+    
+    # Base query
+    query = User.query
+    
+    # Apply search filter
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.filter(
+            (User.username.like(search_pattern)) | 
+            (User.email.like(search_pattern))
+        )
+    
+    # Paginate results
+    users = query.order_by(User.created_at.desc()).paginate(
+        page=page, per_page=20, error_out=False
+    )
+    
+    return render_template('user_management.html', 
+                          title='User Management', 
+                          users=users, 
+                          search=search)
+
+
+@app.route('/admin/user/<int:user_id>/delete', methods=['POST'])
+@login_required
+def delete_user(user_id):
+    if not current_user.is_admin:
+        flash('You do not have permission', 'danger')
+        return redirect(url_for('index'))
+    
+    # Prevent deleting self
+    if user_id == current_user.id:
+        flash('You cannot delete your own account', 'danger')
+        return redirect(url_for('manage_users'))
+    
+    user = User.query.get_or_404(user_id)
+    
+    # Delete user concerts first (cascade should handle this, but being explicit)
+    Concert.query.filter_by(artist_id=user.id).delete()
+    
+    db.session.delete(user)
+    db.session.commit()
+    
+    flash(f'User {user.username} has been deleted', 'success')
+    return redirect(url_for('manage_users'))
+
+
+@app.route('/admin/user/create', methods=['GET', 'POST'])
+@login_required
+def create_user():
+    if not current_user.is_admin:
+        flash('You do not have permission', 'danger')
+        return redirect(url_for('index'))
+    
+    form = RegistrationForm()
+    if form.validate_on_submit():
+        try:
+            user = User(
+                username=form.username.data,
+                email=form.email.data,
+                is_artist=form.is_artist.data
+            )
+            user.set_password(form.password.data)
+            
+            db.session.add(user)
+            db.session.commit()
+            
+            flash(f'User {user.username} has been created successfully!', 'success')
+            return redirect(url_for('manage_users'))
+        except Exception as e:
+            db.session.rollback()
+            flash('An error occurred while creating the user.', 'danger')
+            app.logger.error(f'User creation error: {str(e)}')
+    
+    return render_template('create_user.html', title='Create User', form=form)
+
+
+# API Routes for React Frontend
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    data = request.get_json()
+    user = User.query.filter_by(email=data.get('email')).first()
+    if user and user.check_password(data.get('password')):
+        login_user(user)
+        return jsonify({'success': True, 'user': {'id': user.id, 'username': user.username}})
+    return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+
+@app.route('/api/register', methods=['POST'])
+def api_register():
+    data = request.get_json()
+    if User.query.filter_by(email=data.get('email')).first():
+        return jsonify({'success': False, 'message': 'Email already exists'}), 400
+    
+    user = User(
+        username=data.get('username'),
+        email=data.get('email'),
+        is_artist=data.get('is_artist', False)
+    )
+    user.set_password(data.get('password'))
+    db.session.add(user)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'User registered successfully'})
+
+@app.route('/api/concerts', methods=['GET'])
+def api_concerts():
+    concerts = Concert.query.order_by(Concert.created_at.desc()).all()
+    return jsonify([{
+        'id': c.id,
+        'title': c.title,
+        'artist': c.artist.username,
+        'genre': c.genre,
+        'thumbnail_url': c.thumbnail_url,
+        'is_live': c.is_live
+    } for c in concerts])
+
+@app.route('/api/concert/create', methods=['POST'])
+@login_required
+def api_create_concert():
+    data = request.get_json()
+    if not current_user.is_artist:
+        return jsonify({'success': False, 'message': 'Only artists can create concerts'}), 403
+    
+    duration_seconds = int(float(data.get('duration', 0)) * 60)
+    concert = Concert(
+        title=data.get('title'),
+        artist_id=current_user.id,
+        description=data.get('description'),
+        video_url=data.get('video_url'),
+        thumbnail_url=data.get('thumbnail_url'),
+        genre=data.get('genre'),
+        duration=duration_seconds,
+        is_live=data.get('is_live', False),
+        scheduled_for=datetime.fromisoformat(data.get('scheduled_for')) if data.get('scheduled_for') else None
+    )
+    db.session.add(concert)
+    db.session.commit()
+    return jsonify({'success': True, 'concert_id': concert.id})
+
 # Error handlers
 @app.errorhandler(404)
 def not_found_error(error):
@@ -461,3 +711,54 @@ def seed_admin():
         db.session.commit()
         return "Admin user created!"
     return "Admin user already exists!"
+
+
+# Seed demo data including Ne-Yo video
+@app.route('/seed_demo', methods=['GET'])
+def seed_demo():
+    # Create Ne-Yo artist if doesn't exist
+    neyo = User.query.filter_by(username='Ne-Yo').first()
+    if not neyo:
+        neyo = User(
+            username='Ne-Yo',
+            email='neyo@oestudio.com',
+            is_artist=True,
+            bio='Grammy Award-winning R&B singer, songwriter, and producer known for hits like "So Sick" and "Miss Independent".',
+            profile_picture='https://i.ytimg.com/vi/vR6_ZVKEhJ4/maxresdefault.jpg'
+        )
+        neyo.set_password('neyo123')
+        db.session.add(neyo)
+        db.session.flush()  # Get the ID
+    
+    # Check if demo concert already exists
+    demo_concert = Concert.query.filter_by(title='Ne-Yo Live at NPR Music Tiny Desk Concert').first()
+    if not demo_concert:
+        demo_concert = Concert(
+            title='Ne-Yo Live at NPR Music Tiny Desk Concert',
+            artist_id=neyo.id,
+            description='Experience Ne-Yo\'s incredible acoustic performance at NPR Music\'s Tiny Desk Concert. Watch as he performs stripped-down versions of his biggest hits in an intimate setting.',
+            video_url='https://www.youtube.com/embed/vR6_ZVKEhJ4',
+            thumbnail_url='https://i.ytimg.com/vi/vR6_ZVKEhJ4/maxresdefault.jpg',
+            genre='R&B',
+            duration=1200,  # 20 minutes
+            is_live=False
+        )
+        db.session.add(demo_concert)
+    
+    # Create Heavenly Sleep Prayers concert
+    sleep_prayers = Concert.query.filter_by(title='Heavenly Sleep Prayers - Peaceful Music').first()
+    if not sleep_prayers:
+        sleep_prayers = Concert(
+            title='Heavenly Sleep Prayers - Peaceful Music',
+            artist_id=neyo.id,  # Using Ne-Yo as artist for now, could create a new artist
+            description='Experience deep relaxation and peaceful sleep with these heavenly prayers and soothing music. Perfect for meditation, prayer time, or falling asleep to calming spiritual content.',
+            video_url='https://www.youtube.com/embed/uaICIX5AXaQ',
+            thumbnail_url='https://i.ytimg.com/vi/uaICIX5AXaQ/maxresdefault.jpg',
+            genre='Spiritual',
+            duration=3600,  # Assuming 1 hour duration
+            is_live=False
+        )
+        db.session.add(sleep_prayers)
+    
+    db.session.commit()
+    return "Demo data seeded successfully!"

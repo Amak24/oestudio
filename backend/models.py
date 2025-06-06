@@ -31,16 +31,16 @@ class User(UserMixin, db.Model):
 
 class Concert(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(256), nullable=False)
-    artist_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    title = db.Column(db.String(256), nullable=False, index=True)
+    artist_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     description = db.Column(db.Text, nullable=False)
     video_url = db.Column(db.String(256), nullable=False)
     thumbnail_url = db.Column(db.String(256), nullable=False)
-    genre = db.Column(db.String(64))
+    genre = db.Column(db.String(64), index=True)
     duration = db.Column(db.Integer)  # Duration in seconds
-    is_live = db.Column(db.Boolean, default=False)
-    scheduled_for = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_live = db.Column(db.Boolean, default=False, index=True)
+    scheduled_for = db.Column(db.DateTime, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     
     # Relationships
     artist = db.relationship('User', backref=db.backref('concerts', lazy='dynamic'))
